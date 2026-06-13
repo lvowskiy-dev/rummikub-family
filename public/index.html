@@ -21,10 +21,10 @@ html,body{height:100%;overflow:hidden;font-family:'Segoe UI',system-ui,sans-seri
   --wood:#5d3a1a;
   --wood-l:#7a4e2d;
   --rack-bg:linear-gradient(180deg,#7a4e2d,#5d3a1a);
-  --c-red:#c0392b;
-  --c-blue:#1a5276;
+  --c-red:#d90000;
+  --c-blue:#0044bb;
   --c-black:#111;
-  --c-orange:#166534;
+  --c-orange:#007700;
   --shadow:rgba(0,0,0,.45);
   --gold:#f0c040;
   --r:8px;
@@ -263,8 +263,9 @@ input:focus{border-color:var(--gold)}
 }
 .rack::-webkit-scrollbar{display:none}
 .rack .tile{flex-shrink:0}
-.rack-slot{width:8px;min-width:8px;height:60px;border-radius:4px;flex-shrink:0;transition:all .15s}
-.rack-slot.active{width:46px;min-width:46px;background:rgba(240,192,64,.25);border:1.5px dashed var(--gold)}
+.rack-slot{width:12px;min-width:12px;height:60px;border-radius:4px;flex-shrink:0;transition:all .15s;cursor:pointer}
+.rack-slot.active,.rack-slot:hover{width:40px;min-width:40px;background:rgba(240,192,64,.25);border:1.5px dashed var(--gold)}
+.rack-slot.slot-ready{background:rgba(240,192,64,.15);border:1.5px dashed rgba(240,192,64,.5)}
 
 /* ── Toast / Error ───────────────────────────── */
 .toast{
@@ -697,9 +698,11 @@ function renderRack() {
     >${num}</div><div class="rack-slot" data-rack-pos="${i+1}"></div>`;
   });
   rack.innerHTML = html;
+  const slotsReady = selectedTile && selectedTile.source === 'rack';
   document.querySelectorAll('.rack-slot').forEach(slot => {
-    slot.addEventListener('pointerenter', () => { if (dragState) slot.classList.add('active'); });
-    slot.addEventListener('pointerleave', () => slot.classList.remove('active'));
+    if (slotsReady) slot.classList.add('slot-ready');
+    slot.addEventListener('pointerenter', () => { if (dragState || slotsReady) slot.classList.add('active'); });
+    slot.addEventListener('pointerleave', () => { if (!slotsReady) slot.classList.remove('active'); });
   });
 }
 
@@ -743,7 +746,7 @@ function tileClick(event, tileId) {
     // Select tile
     if (fromRack) {
       selectedTile = { tile: fromRack, source: 'rack' };
-      showSelectHint('Тапни сет или + чтобы разместить');
+      showSelectHint('Тапни между фишками в стойке чтобы переставить, или тапни сет');
       renderRack();
       renderBoard();
     } else if (inBoard) {
@@ -1031,9 +1034,28 @@ function cleanupGhost() {
   if (ghostEl) { ghostEl.remove(); ghostEl = null; }
 }
 
-// Click on set row background → place selected tile
+// Global click: set background, new-set btn, rack slots
 document.addEventListener('click', e => {
   if (!isMyTurn || !selectedTile) return;
+
+  // Click rack slot → reorder to exact position (standard shift)
+  const rackSlot = e.target.closest('.rack-slot');
+  if (rackSlot && document.getElementById('rack').contains(rackSlot)) {
+    if (selectedTile.source === 'rack') {
+      let pos = parseInt(rackSlot.dataset.rackPos);
+      const selTile = selectedTile.tile;
+      const origIdx = myRack.findIndex(t => t.id === selTile.id);
+      myRack = myRack.filter(t => t.id !== selTile.id);
+      if (origIdx < pos) pos = Math.max(0, pos - 1);
+      myRack.splice(pos, 0, selTile);
+      selectedTile = null;
+      clearSelectHint();
+      renderRack();
+    }
+    return;
+  }
+
+  // Click set background → place tile at end of set
   const row = e.target.closest('.set-row');
   if (row && !e.target.closest('.tile')) {
     const si = parseInt(row.dataset.set);
