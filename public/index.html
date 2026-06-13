@@ -24,7 +24,7 @@ html,body{height:100%;overflow:hidden;font-family:'Segoe UI',system-ui,sans-seri
   --c-red:#c0392b;
   --c-blue:#1a5276;
   --c-black:#111;
-  --c-orange:#c0580a;
+  --c-orange:#166534;
   --shadow:rgba(0,0,0,.45);
   --gold:#f0c040;
   --r:8px;
@@ -263,6 +263,8 @@ input:focus{border-color:var(--gold)}
 }
 .rack::-webkit-scrollbar{display:none}
 .rack .tile{flex-shrink:0}
+.rack-slot{width:8px;min-width:8px;height:60px;border-radius:4px;flex-shrink:0;transition:all .15s}
+.rack-slot.active{width:46px;min-width:46px;background:rgba(240,192,64,.25);border:1.5px dashed var(--gold)}
 
 /* ── Toast / Error ───────────────────────────── */
 .toast{
@@ -681,18 +683,24 @@ function renderBoard() {
 
 function renderRack() {
   const rack = document.getElementById('rack');
-  rack.innerHTML = myRack.map((tile, i) => {
+  let html = `<div class="rack-slot" data-rack-pos="0"></div>`;
+  myRack.forEach((tile, i) => {
     const cls = tile.isJoker ? 'joker' : `color-${tile.color}`;
     const num = tile.isJoker ? '★' : tile.number;
     const isSelected = selectedTile && selectedTile.tile.id === tile.id && selectedTile.source === 'rack';
-    return `<div class="tile ${cls} in-rack${isSelected ? ' selected' : ''}"
+    html += `<div class="tile ${cls} in-rack${isSelected ? ' selected' : ''}"
       data-id="${tile.id}"
       data-num="${tile.isJoker ? '' : tile.number}"
       ontouchstart="tilePointerDown(event,${tile.id},'rack',true)"
       onpointerdown="tilePointerDown(event,${tile.id},'rack',false)"
       onclick="tileClick(event,${tile.id})"
-    >${num}</div>`;
-  }).join('');
+    >${num}</div><div class="rack-slot" data-rack-pos="${i+1}"></div>`;
+  });
+  rack.innerHTML = html;
+  document.querySelectorAll('.rack-slot').forEach(slot => {
+    slot.addEventListener('pointerenter', () => { if (dragState) slot.classList.add('active'); });
+    slot.addEventListener('pointerleave', () => slot.classList.remove('active'));
+  });
 }
 
 function renderLog(log) {
@@ -761,9 +769,22 @@ function tileClick(event, tileId) {
     return;
   }
 
-  // Click on rack tile → deselect and select new
+  // Click on rack tile while another rack tile selected → reorder
+  if (fromRack && selectedTile && selectedTile.source === 'rack') {
+    const selTile = selectedTile.tile;
+    myRack = myRack.filter(t => t.id !== selTile.id);
+    const newIdx = myRack.findIndex(t => t.id === tileId);
+    myRack.splice(newIdx, 0, selTile);
+    selectedTile = null;
+    clearSelectHint();
+    renderRack();
+    return;
+  }
+
+  // Click on rack tile → select it
   if (fromRack) {
     selectedTile = { tile: fromRack, source: 'rack' };
+    showSelectHint('Тапни сет, + или другую фишку в стойке чтобы переставить');
     renderRack();
     renderBoard();
     return;
@@ -978,7 +999,21 @@ function dropAt(x, y) {
     return;
   }
 
-  // Drop on rack
+  // Drop on rack slot (precise position — reorder or return from board)
+  const rackSlot = target.closest('.rack-slot');
+  if (rackSlot && document.getElementById('rack').contains(rackSlot)) {
+    let pos = parseInt(rackSlot.dataset.rackPos);
+    const origIdx = src === 'rack' ? myRack.findIndex(t => t.id === tile.id) : -1;
+    pickupTile(tile, src);
+    if (origIdx !== -1 && origIdx < pos) pos = Math.max(0, pos - 1);
+    myRack.splice(pos, 0, tile);
+    boardSets = boardSets.filter(s => s.length > 0);
+    dragState = null;
+    renderBoard(); renderRack();
+    return;
+  }
+
+  // Drop anywhere on rack (append to end)
   if (target.closest('.rack')) {
     pickupTile(tile, src);
     myRack.push(tile);
