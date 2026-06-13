@@ -1,0 +1,1054 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#1a5c38">
+<title>Rummikub Online</title>
+<style>
+/* ── Reset & Base ─────────────────────────────── */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;overflow:hidden;font-family:'Segoe UI',system-ui,sans-serif;touch-action:none}
+
+/* ── CSS Variables ───────────────────────────── */
+:root{
+  --green:#1e6b3f;
+  --green-d:#134a2b;
+  --green-l:#2d8a52;
+  --felt:radial-gradient(ellipse at 40% 30%,#2d8a52,#1a5c38 60%,#134a2b);
+  --tile-bg:#fef9ef;
+  --tile-border:#d4b896;
+  --wood:#5d3a1a;
+  --wood-l:#7a4e2d;
+  --rack-bg:linear-gradient(180deg,#7a4e2d,#5d3a1a);
+  --c-red:#c0392b;
+  --c-blue:#1a5276;
+  --c-black:#111;
+  --c-orange:#c0580a;
+  --shadow:rgba(0,0,0,.45);
+  --gold:#f0c040;
+  --r:8px;
+}
+
+/* ── Screens ─────────────────────────────────── */
+.screen{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;transition:opacity .3s}
+.screen.hidden{opacity:0;pointer-events:none}
+
+/* ── Lobby ───────────────────────────────────── */
+#lobby{background:var(--felt)}
+.lobby-card{
+  background:rgba(255,255,255,.08);backdrop-filter:blur(12px);
+  border:1px solid rgba(255,255,255,.15);border-radius:20px;
+  padding:32px 28px;width:min(360px,94vw);
+  box-shadow:0 20px 60px rgba(0,0,0,.5);
+}
+.logo{font-size:2.2rem;font-weight:900;letter-spacing:-1px;color:#fff;text-align:center;margin-bottom:4px}
+.logo span{color:var(--gold)}
+.tagline{text-align:center;color:rgba(255,255,255,.55);font-size:.8rem;margin-bottom:24px}
+.field{display:flex;flex-direction:column;gap:6px;margin-bottom:14px}
+label{color:rgba(255,255,255,.7);font-size:.78rem;font-weight:600;letter-spacing:.5px;text-transform:uppercase}
+input{
+  background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.2);
+  border-radius:10px;padding:12px 14px;color:#fff;font-size:1rem;
+  outline:none;transition:border-color .2s;
+}
+input::placeholder{color:rgba(255,255,255,.35)}
+input:focus{border-color:var(--gold)}
+.btn{
+  width:100%;padding:14px;border:none;border-radius:12px;font-size:1rem;font-weight:700;
+  cursor:pointer;transition:transform .1s,box-shadow .1s;letter-spacing:.3px;
+}
+.btn:active{transform:scale(.97)}
+.btn-primary{background:var(--gold);color:#1a3a0a;box-shadow:0 4px 16px rgba(240,192,64,.4)}
+.btn-primary:hover{box-shadow:0 6px 20px rgba(240,192,64,.6)}
+.btn-ghost{background:rgba(255,255,255,.12);color:#fff;border:1px solid rgba(255,255,255,.2);margin-top:8px}
+.divider{display:flex;align-items:center;gap:10px;margin:16px 0;color:rgba(255,255,255,.3);font-size:.8rem}
+.divider::before,.divider::after{content:'';flex:1;height:1px;background:rgba(255,255,255,.15)}
+
+/* ── Lobby Room ──────────────────────────────── */
+#lobby-room{background:var(--felt)}
+.room-card{
+  background:rgba(255,255,255,.08);backdrop-filter:blur(12px);
+  border:1px solid rgba(255,255,255,.15);border-radius:20px;
+  padding:28px;width:min(360px,94vw);
+  box-shadow:0 20px 60px rgba(0,0,0,.5);
+}
+.code-display{
+  background:rgba(0,0,0,.3);border-radius:12px;padding:16px;text-align:center;margin-bottom:20px;
+}
+.code-label{color:rgba(255,255,255,.5);font-size:.75rem;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px}
+.code-value{font-size:2.8rem;font-weight:900;letter-spacing:8px;color:var(--gold);font-family:monospace}
+.players-list{margin-bottom:20px}
+.players-list h3{color:rgba(255,255,255,.6);font-size:.78rem;text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px}
+.player-slot{
+  display:flex;align-items:center;gap:10px;
+  background:rgba(255,255,255,.08);border-radius:10px;padding:10px 14px;margin-bottom:6px;
+  color:#fff;font-size:.95rem;
+}
+.player-slot .avatar{
+  width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+  font-weight:700;font-size:.9rem;flex-shrink:0;
+}
+.player-slot .host-badge{
+  margin-left:auto;background:var(--gold);color:#1a3a0a;
+  font-size:.65rem;font-weight:700;padding:2px 7px;border-radius:20px;text-transform:uppercase;
+}
+.waiting-msg{text-align:center;color:rgba(255,255,255,.4);font-size:.85rem;margin-bottom:16px;font-style:italic}
+.btn-danger{background:rgba(220,50,50,.3);color:#ff8080;border:1px solid rgba(220,50,50,.3);margin-top:8px}
+
+/* ── Game Screen ─────────────────────────────── */
+#game{background:var(--felt);flex-direction:column;justify-content:flex-start;align-items:stretch}
+
+/* Top bar */
+.top-bar{
+  display:flex;align-items:center;gap:8px;padding:8px 10px;
+  background:rgba(0,0,0,.35);backdrop-filter:blur(8px);
+  border-bottom:1px solid rgba(255,255,255,.1);
+  flex-shrink:0;overflow-x:auto;
+  scrollbar-width:none;
+}
+.top-bar::-webkit-scrollbar{display:none}
+.player-chip{
+  display:flex;align-items:center;gap:6px;
+  background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.1);
+  border-radius:100px;padding:5px 10px 5px 5px;
+  white-space:nowrap;flex-shrink:0;transition:all .2s;
+}
+.player-chip.active{background:rgba(240,192,64,.2);border-color:var(--gold)}
+.player-chip.active .chip-dot{background:var(--gold);box-shadow:0 0 8px var(--gold)}
+.chip-dot{width:10px;height:10px;border-radius:50%;background:rgba(255,255,255,.2)}
+.chip-name{color:#fff;font-size:.78rem;font-weight:600}
+.chip-count{
+  background:rgba(0,0,0,.3);color:rgba(255,255,255,.7);
+  font-size:.7rem;font-weight:700;padding:1px 6px;border-radius:20px;
+}
+.pool-chip{
+  margin-left:auto;flex-shrink:0;display:flex;align-items:center;gap:5px;
+  background:rgba(0,0,0,.3);border-radius:100px;padding:5px 10px;
+  color:rgba(255,255,255,.6);font-size:.75rem;
+}
+
+/* Board */
+.board{
+  flex:1;overflow-y:auto;overflow-x:hidden;
+  padding:10px;padding-bottom:4px;
+  scrollbar-width:thin;scrollbar-color:rgba(255,255,255,.1) transparent;
+}
+.board::-webkit-scrollbar{width:4px}
+.board::-webkit-scrollbar-thumb{background:rgba(255,255,255,.1);border-radius:4px}
+
+.set-row{
+  display:flex;align-items:center;flex-wrap:nowrap;gap:3px;
+  background:rgba(0,0,0,.15);border:1px solid rgba(255,255,255,.08);
+  border-radius:10px;padding:8px 10px;margin-bottom:6px;
+  min-height:72px;overflow-x:auto;
+  scrollbar-width:none;position:relative;
+}
+.set-row::-webkit-scrollbar{display:none}
+.set-row.valid{border-color:rgba(100,220,100,.3)}
+.set-row.invalid{border-color:rgba(255,80,80,.4);background:rgba(255,0,0,.08)}
+.set-row.drop-target{border-color:var(--gold);background:rgba(240,192,64,.12);border-style:dashed}
+
+.set-label{
+  position:absolute;top:4px;left:8px;
+  font-size:.6rem;color:rgba(255,255,255,.3);font-weight:600;letter-spacing:.5px;text-transform:uppercase;
+}
+.set-validity-icon{
+  position:absolute;top:4px;right:8px;font-size:.75rem;
+}
+
+.new-set-btn{
+  display:flex;align-items:center;justify-content:center;gap:6px;
+  background:rgba(255,255,255,.06);border:1.5px dashed rgba(255,255,255,.2);
+  border-radius:10px;padding:12px;margin-bottom:6px;
+  color:rgba(255,255,255,.4);font-size:.85rem;cursor:pointer;
+  transition:all .2s;min-height:72px;
+}
+.new-set-btn:hover,.new-set-btn.drop-target{
+  border-color:var(--gold);color:var(--gold);background:rgba(240,192,64,.1);
+}
+.new-set-btn svg{opacity:.6}
+
+/* Tile drop slot */
+.drop-slot{
+  width:14px;min-width:14px;height:58px;border-radius:4px;
+  transition:all .15s;flex-shrink:0;
+}
+.drop-slot.active{
+  width:46px;min-width:46px;
+  background:rgba(240,192,64,.25);border:1.5px dashed var(--gold);
+}
+
+/* ── Tile ─────────────────────────────────────── */
+.tile{
+  width:42px;min-width:42px;height:58px;
+  border-radius:7px;
+  background:linear-gradient(145deg,#fef9ef 0%,#f5e6c8 100%);
+  box-shadow:2px 3px 6px var(--shadow),inset 0 1px 0 rgba(255,255,255,.85),inset 0 -1px 0 rgba(0,0,0,.12);
+  border:1px solid var(--tile-border);
+  display:flex;align-items:center;justify-content:center;
+  font-size:18px;font-weight:900;
+  cursor:grab;user-select:none;
+  position:relative;flex-shrink:0;
+  transition:transform .12s,box-shadow .12s,opacity .12s;
+}
+.tile:active{cursor:grabbing}
+.tile::after{
+  content:attr(data-num);
+  position:absolute;bottom:2px;right:4px;font-size:8px;opacity:.35;
+}
+.tile.color-red{color:var(--c-red)}
+.tile.color-blue{color:var(--c-blue)}
+.tile.color-black{color:var(--c-black)}
+.tile.color-orange{color:var(--c-orange)}
+.tile.joker{
+  background:linear-gradient(135deg,#f6d365,#fda085,#f6d365);
+  color:#fff;font-size:20px;text-shadow:0 1px 3px rgba(0,0,0,.4);
+  border-color:#e8954a;
+}
+.tile.selected{
+  transform:translateY(-8px) scale(1.06);
+  box-shadow:0 10px 24px rgba(0,0,0,.5),0 0 0 3px var(--gold),inset 0 1px 0 rgba(255,255,255,.85);
+}
+.tile.ghost-source{opacity:.3;transform:scale(.95)}
+.tile.in-rack{touch-action:none}
+
+/* Ghost (drag) */
+.drag-ghost{
+  position:fixed;pointer-events:none;z-index:9999;
+  transition:none;transform:scale(1.1) rotate(3deg);
+  box-shadow:4px 8px 24px rgba(0,0,0,.6),0 0 0 2px var(--gold);
+  opacity:.95;
+}
+
+/* ── Controls ─────────────────────────────────── */
+.controls{
+  display:flex;align-items:center;gap:6px;padding:8px 10px;
+  background:rgba(0,0,0,.35);backdrop-filter:blur(8px);
+  border-top:1px solid rgba(255,255,255,.1);flex-shrink:0;
+}
+.ctrl-btn{
+  display:flex;align-items:center;gap:5px;
+  padding:8px 12px;border:none;border-radius:10px;font-size:.8rem;font-weight:700;
+  cursor:pointer;transition:all .15s;flex-shrink:0;
+}
+.ctrl-btn:active{transform:scale(.95)}
+.ctrl-btn:disabled{opacity:.35;cursor:not-allowed;transform:none}
+.btn-draw{background:rgba(255,255,255,.12);color:#fff;border:1px solid rgba(255,255,255,.2)}
+.btn-draw:hover:not(:disabled){background:rgba(255,255,255,.2)}
+.btn-undo{background:rgba(255,165,0,.15);color:#ffb347;border:1px solid rgba(255,165,0,.25)}
+.btn-undo:hover:not(:disabled){background:rgba(255,165,0,.25)}
+.btn-end{
+  background:linear-gradient(135deg,#27ae60,#1e8449);color:#fff;
+  margin-left:auto;padding:10px 18px;font-size:.88rem;
+  box-shadow:0 4px 14px rgba(39,174,96,.4);
+}
+.btn-end:hover:not(:disabled){box-shadow:0 6px 20px rgba(39,174,96,.6)}
+
+.turn-status{
+  flex:1;min-width:0;
+  font-size:.78rem;color:rgba(255,255,255,.6);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.turn-status.my-turn{color:var(--gold);font-weight:700}
+
+/* ── Rack ─────────────────────────────────────── */
+.rack{
+  display:flex;align-items:center;
+  padding:10px;gap:3px;
+  background:var(--rack-bg);
+  border-top:2px solid rgba(255,255,255,.08);
+  overflow-x:auto;flex-shrink:0;
+  scrollbar-width:none;min-height:82px;
+}
+.rack::-webkit-scrollbar{display:none}
+.rack .tile{flex-shrink:0}
+
+/* ── Toast / Error ───────────────────────────── */
+.toast{
+  position:fixed;top:80px;left:50%;transform:translateX(-50%) translateY(-20px);
+  background:rgba(220,53,69,.92);backdrop-filter:blur(8px);
+  color:#fff;padding:10px 18px;border-radius:12px;font-size:.85rem;font-weight:600;
+  z-index:1000;opacity:0;transition:all .3s;pointer-events:none;max-width:90vw;text-align:center;
+  box-shadow:0 4px 20px rgba(0,0,0,.4);
+}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+.toast.success{background:rgba(39,174,96,.92)}
+.toast.info{background:rgba(52,73,94,.92)}
+
+/* ── Game Over ───────────────────────────────── */
+.overlay{
+  position:fixed;inset:0;background:rgba(0,0,0,.7);backdrop-filter:blur(8px);
+  display:flex;align-items:center;justify-content:center;z-index:500;
+  opacity:0;pointer-events:none;transition:opacity .4s;
+}
+.overlay.show{opacity:1;pointer-events:all}
+.winner-card{
+  background:linear-gradient(135deg,#1a5c38,#134a2b);
+  border:1px solid rgba(240,192,64,.4);border-radius:24px;
+  padding:40px 32px;text-align:center;
+  box-shadow:0 30px 80px rgba(0,0,0,.6),0 0 0 1px rgba(240,192,64,.2);
+  max-width:340px;width:90vw;
+}
+.trophy{font-size:4rem;margin-bottom:12px;animation:bounce .6s ease infinite alternate}
+@keyframes bounce{from{transform:scale(1)}to{transform:scale(1.1)}}
+.winner-title{font-size:1rem;color:rgba(255,255,255,.6);margin-bottom:8px}
+.winner-name{font-size:2rem;font-weight:900;color:var(--gold);margin-bottom:20px}
+.btn-again{
+  background:var(--gold);color:#1a3a0a;border:none;border-radius:12px;
+  padding:14px 28px;font-size:1rem;font-weight:700;cursor:pointer;width:100%;
+}
+
+/* ── Log panel ───────────────────────────────── */
+.log-panel{
+  position:fixed;right:8px;top:80px;
+  width:180px;max-height:200px;overflow-y:auto;
+  background:rgba(0,0,0,.45);backdrop-filter:blur(8px);
+  border-radius:10px;border:1px solid rgba(255,255,255,.1);
+  padding:8px;z-index:100;
+  scrollbar-width:none;
+}
+@media(max-width:480px){.log-panel{display:none}}
+.log-item{font-size:.68rem;color:rgba(255,255,255,.5);padding:3px 0;border-bottom:1px solid rgba(255,255,255,.06)}
+.log-item:last-child{border:none}
+
+/* ── Responsive ─────────────────────────────── */
+@media(max-width:380px){
+  .tile{width:36px;min-width:36px;height:50px;font-size:15px}
+  .ctrl-btn{padding:7px 9px;font-size:.73rem}
+  .btn-end{padding:9px 14px}
+}
+@media(min-width:700px){
+  .tile{width:48px;min-width:48px;height:64px;font-size:20px}
+}
+
+/* ── Avatar colors ───────────────────────────── */
+.av0{background:#e74c3c}.av1{background:#2980b9}.av2{background:#27ae60}.av3{background:#8e44ad}
+
+/* Selection overlay */
+.select-hint{
+  position:fixed;bottom:90px;left:50%;transform:translateX(-50%);
+  background:rgba(240,192,64,.15);backdrop-filter:blur(8px);
+  border:1px solid rgba(240,192,64,.4);border-radius:100px;
+  padding:6px 16px;color:var(--gold);font-size:.78rem;font-weight:600;
+  z-index:200;pointer-events:none;transition:opacity .2s;opacity:0;
+}
+.select-hint.show{opacity:1}
+</style>
+</head>
+<body>
+
+<!-- ── LOBBY ── -->
+<div id="lobby" class="screen">
+  <div class="lobby-card">
+    <div class="logo">Rummi<span>Kub</span></div>
+    <div class="tagline">Семейная игра онлайн · до 4 игроков</div>
+
+    <div class="field">
+      <label>Ваше имя</label>
+      <input id="name-input" type="text" placeholder="Введи имя..." maxlength="16" autocomplete="off">
+    </div>
+
+    <button class="btn btn-primary" onclick="createRoom()">🎲 Создать комнату</button>
+    <div class="divider">или</div>
+
+    <div class="field" style="margin-bottom:10px">
+      <label>Код комнаты</label>
+      <input id="code-input" type="text" placeholder="ABCD" maxlength="4"
+        style="text-transform:uppercase;letter-spacing:4px;font-weight:700;font-size:1.2rem;text-align:center"
+        autocomplete="off">
+    </div>
+    <button class="btn btn-ghost" onclick="joinRoom()">🚪 Войти в комнату</button>
+  </div>
+</div>
+
+<!-- ── LOBBY ROOM ── -->
+<div id="lobby-room" class="screen hidden">
+  <div class="room-card">
+    <div class="code-display">
+      <div class="code-label">Код комнаты — скажи другим</div>
+      <div class="code-value" id="room-code-display">----</div>
+    </div>
+    <div class="players-list">
+      <h3>Игроки <span id="player-count" style="color:var(--gold)">0/4</span></h3>
+      <div id="players-slots"></div>
+    </div>
+    <div class="waiting-msg" id="waiting-msg">Ожидаем игроков...</div>
+    <button class="btn btn-primary hidden" id="start-btn" onclick="startGame()">▶ Начать игру</button>
+    <button class="btn btn-danger" onclick="leaveRoom()" style="margin-top:8px">← Выйти</button>
+  </div>
+</div>
+
+<!-- ── GAME ── -->
+<div id="game" class="screen hidden">
+
+  <!-- Players top -->
+  <div class="top-bar" id="top-bar">
+    <div class="player-chip" id="pool-chip">
+      <span style="font-size:.8rem">🎴</span>
+      <span class="chip-count" id="pool-count">88</span>
+    </div>
+  </div>
+
+  <!-- Board -->
+  <div class="board" id="board"></div>
+
+  <!-- Controls -->
+  <div class="controls">
+    <button class="ctrl-btn btn-undo" id="btn-undo" onclick="undoTurn()" disabled>↩ Отмена</button>
+    <div class="turn-status" id="turn-status">Ждём...</div>
+    <button class="ctrl-btn btn-draw" id="btn-draw" onclick="drawTile()" disabled>+1</button>
+    <button class="ctrl-btn btn-end" id="btn-end" onclick="endTurn()" disabled>Конец хода ✓</button>
+  </div>
+
+  <!-- Rack -->
+  <div class="rack" id="rack"></div>
+</div>
+
+<!-- ── OVERLAYS ── -->
+<div class="overlay" id="winner-overlay">
+  <div class="winner-card">
+    <div class="trophy">🏆</div>
+    <div class="winner-title">Победитель</div>
+    <div class="winner-name" id="winner-name">—</div>
+    <button class="btn-again" onclick="requestRestart()">Играть снова</button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+<div class="select-hint" id="select-hint">Выбери место для фишки</div>
+<div class="log-panel" id="log-panel"></div>
+
+<!-- ── Socket.IO ── -->
+<script src="/socket.io/socket.io.js"></script>
+<script>
+// ── State ──────────────────────────────────────────────────
+const socket = io();
+let myName = '';
+let myRoomCode = '';
+let isHost = false;
+let isMyTurn = false;
+let myRack = [];           // tile objects on my rack
+let boardSets = [];        // [[tile,...], ...] current board
+let boardSnap = [];        // snapshot at turn start
+let rackSnap = [];         // rack snapshot at turn start
+let selectedTile = null;   // { tile, source: 'rack'|{setIdx,pos} }
+let dragState = null;
+let ghostEl = null;
+let gameState = null;
+
+const AVATAR_COLORS = ['#e74c3c','#2980b9','#27ae60','#8e44ad'];
+
+// ── Socket Events ──────────────────────────────────────────
+socket.on('room_created', ({ code }) => {
+  myRoomCode = code;
+  isHost = true;
+  showScreen('lobby-room');
+  document.getElementById('room-code-display').textContent = code;
+});
+
+socket.on('room_joined', ({ code }) => {
+  myRoomCode = code;
+  showScreen('lobby-room');
+  document.getElementById('room-code-display').textContent = code;
+});
+
+socket.on('lobby_update', ({ players, host }) => {
+  isHost = (host === myName);
+  document.getElementById('player-count').textContent = `${players.length}/4`;
+  document.getElementById('start-btn').classList.toggle('hidden', !isHost || players.length < 2);
+  document.getElementById('waiting-msg').style.display = (isHost && players.length < 2) ? 'block' : 'none';
+
+  const slots = document.getElementById('players-slots');
+  slots.innerHTML = players.map((name, i) => `
+    <div class="player-slot">
+      <div class="avatar av${i}" style="background:${AVATAR_COLORS[i]}">${name[0].toUpperCase()}</div>
+      <span>${name}</span>
+      ${name === host ? '<span class="host-badge">Хост</span>' : ''}
+    </div>
+  `).join('');
+});
+
+socket.on('game_started', () => {
+  showScreen('game');
+  myRack = [];
+  boardSets = [];
+  boardSnap = [];
+  selectedTile = null;
+  setMyTurn(false);
+});
+
+socket.on('game_state', state => {
+  gameState = state;
+  boardSets = state.board.map(s => [...s]);
+  renderBoard();
+  renderTopBar(state);
+  document.getElementById('pool-count').textContent = state.poolCount;
+  renderLog(state.log || []);
+});
+
+socket.on('your_rack', rack => {
+  myRack = rack;
+  renderRack();
+});
+
+socket.on('your_turn', ({ snap }) => {
+  boardSnap = snap.map(s => [...s]);
+  rackSnap = myRack.map(t => ({...t}));
+  setMyTurn(true);
+  showToast('Ваш ход!', 'success');
+});
+
+socket.on('drew_tile', tile => {
+  myRack.push(tile);
+  renderRack();
+});
+
+socket.on('invalid_move', msg => showToast(msg, 'error'));
+socket.on('error_msg', msg => showToast(msg, 'error'));
+
+socket.on('game_over', ({ winner }) => {
+  document.getElementById('winner-name').textContent = winner;
+  document.getElementById('winner-overlay').classList.add('show');
+  setMyTurn(false);
+});
+
+socket.on('player_left', ({ name }) => showToast(`${name} покинул игру`, 'info'));
+
+socket.on('chat_msg', ({ name, msg }) => showToast(`${name}: ${msg}`, 'info'));
+
+// ── Lobby Actions ──────────────────────────────────────────
+function createRoom() {
+  myName = document.getElementById('name-input').value.trim();
+  if (!myName) return showToast('Введи имя');
+  socket.emit('create_room', { name: myName });
+}
+
+function joinRoom() {
+  myName = document.getElementById('name-input').value.trim();
+  const code = document.getElementById('code-input').value.trim().toUpperCase();
+  if (!myName) return showToast('Введи имя');
+  if (!code || code.length !== 4) return showToast('Введи код комнаты (4 буквы)');
+  socket.emit('join_room', { code, name: myName });
+}
+
+function startGame() { socket.emit('start_game'); }
+function leaveRoom() { location.reload(); }
+function requestRestart() {
+  document.getElementById('winner-overlay').classList.remove('show');
+  socket.emit('restart_game');
+  showScreen('lobby-room');
+}
+
+// ── Game Actions ───────────────────────────────────────────
+function drawTile() {
+  if (!isMyTurn) return;
+  socket.emit('draw_tile');
+  setMyTurn(false);
+}
+
+function endTurn() {
+  if (!isMyTurn) return;
+  socket.emit('end_turn', { board: boardSets });
+  setMyTurn(false);
+  selectedTile = null;
+  clearSelectHint();
+}
+
+function undoTurn() {
+  if (!isMyTurn) return;
+  boardSets = boardSnap.map(s => [...s]);
+  myRack = rackSnap.map(t => ({...t}));
+  selectedTile = null;
+  clearSelectHint();
+  renderBoard();
+  renderRack();
+  showToast('Ход отменён', 'info');
+}
+
+function setMyTurn(val) {
+  isMyTurn = val;
+  document.getElementById('btn-draw').disabled = !val;
+  document.getElementById('btn-end').disabled = !val;
+  document.getElementById('btn-undo').disabled = !val;
+  const status = document.getElementById('turn-status');
+  if (val) {
+    status.textContent = 'Ваш ход!';
+    status.className = 'turn-status my-turn';
+  } else if (gameState) {
+    const cur = gameState.players[gameState.currentPlayerIndex];
+    status.textContent = cur ? `Ход: ${cur.name}` : 'Ждём...';
+    status.className = 'turn-status';
+  }
+}
+
+// ── Render ─────────────────────────────────────────────────
+function renderTopBar(state) {
+  const bar = document.getElementById('top-bar');
+  bar.innerHTML = `<div class="player-chip" id="pool-chip">
+    <span style="font-size:.8rem">🎴</span>
+    <span class="chip-count" id="pool-count">${state.poolCount}</span>
+  </div>`;
+  state.players.forEach((p, i) => {
+    const active = i === state.currentPlayerIndex;
+    const chip = document.createElement('div');
+    chip.className = `player-chip${active ? ' active' : ''}`;
+    chip.innerHTML = `<div class="chip-dot" style="background:${AVATAR_COLORS[i]}${active?';box-shadow:0 0 8px '+AVATAR_COLORS[i]:''}"></div>
+      <span class="chip-name">${p.name}</span>
+      <span class="chip-count">${p.tileCount}</span>
+      ${p.hasInitialMeld ? '' : '<span style="font-size:.65rem;color:rgba(255,255,255,.35);margin-left:2px">🔒</span>'}`;
+    bar.appendChild(chip);
+  });
+}
+
+function tileHTML(tile, source, idx = '') {
+  const num = tile.isJoker ? '★' : tile.number;
+  const cls = tile.isJoker ? 'joker' : `color-${tile.color}`;
+  const srcAttr = JSON.stringify(source).replace(/"/g, '&quot;');
+  return `<div class="tile ${cls}"
+    data-id="${tile.id}"
+    data-src="${srcAttr}"
+    data-num="${tile.isJoker ? '' : tile.number}"
+    ontouchstart="tilePointerDown(event,${tile.id},'${JSON.stringify(source).replace(/'/g,"\\'")}',true)"
+    onpointerdown="tilePointerDown(event,${tile.id},'${JSON.stringify(source).replace(/'/g,"\\'")}',false)"
+    onclick="tileClick(event,${tile.id})"
+  >${num}</div>`;
+}
+
+function renderBoard() {
+  const board = document.getElementById('board');
+
+  // Validate each set
+  function setValid(set) {
+    if (set.length < 3) return false;
+    return isValidGroupClient(set) || isValidRunClient(set);
+  }
+
+  let html = '';
+  boardSets.forEach((set, si) => {
+    const valid = setValid(set);
+    const cls = set.length < 3 ? '' : valid ? 'valid' : 'invalid';
+    const icon = set.length < 3 ? '' : valid ? '<span class="set-validity-icon">✓</span>' : '<span class="set-validity-icon" style="color:#ff6b6b">✗</span>';
+
+    html += `<div class="set-row ${cls}" id="set-${si}"
+      ondragover="event.preventDefault()"
+      data-set="${si}">
+      <span class="set-label">Сет ${si + 1}</span>
+      ${icon}
+      <div class="drop-slot" data-set="${si}" data-pos="0"></div>`;
+    set.forEach((tile, ti) => {
+      const cls2 = tile.isJoker ? 'joker' : `color-${tile.color}`;
+      const num = tile.isJoker ? '★' : tile.number;
+      html += `<div class="tile ${cls2}"
+        data-id="${tile.id}"
+        data-num="${tile.isJoker ? '' : tile.number}"
+        ontouchstart="tilePointerDown(event,${tile.id},${JSON.stringify({type:'board',si,ti})},true)"
+        onpointerdown="tilePointerDown(event,${tile.id},${JSON.stringify({type:'board',si,ti})},false)"
+        onclick="tileClick(event,${tile.id})"
+      >${num}</div>
+      <div class="drop-slot" data-set="${si}" data-pos="${ti + 1}"></div>`;
+    });
+    html += `</div>`;
+  });
+
+  html += `<div class="new-set-btn" id="new-set-btn" onclick="createNewSet()"
+    data-droptarget="newset">
+    <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
+    Новый сет
+  </div>`;
+
+  board.innerHTML = html;
+
+  // Reapply selection visual
+  if (selectedTile) {
+    const el = document.querySelector(`.tile[data-id="${selectedTile.tile.id}"]`);
+    if (el) el.classList.add('selected');
+  }
+
+  // Setup drop slots
+  document.querySelectorAll('.drop-slot').forEach(slot => {
+    slot.addEventListener('pointerenter', () => { if (dragState) slot.classList.add('active'); });
+    slot.addEventListener('pointerleave', () => slot.classList.remove('active'));
+  });
+
+  // New set drop
+  const ns = document.getElementById('new-set-btn');
+  if (ns) {
+    ns.addEventListener('pointerenter', () => { if (dragState) ns.classList.add('drop-target'); });
+    ns.addEventListener('pointerleave', () => ns.classList.remove('drop-target'));
+  }
+}
+
+function renderRack() {
+  const rack = document.getElementById('rack');
+  rack.innerHTML = myRack.map((tile, i) => {
+    const cls = tile.isJoker ? 'joker' : `color-${tile.color}`;
+    const num = tile.isJoker ? '★' : tile.number;
+    const isSelected = selectedTile && selectedTile.tile.id === tile.id && selectedTile.source === 'rack';
+    return `<div class="tile ${cls} in-rack${isSelected ? ' selected' : ''}"
+      data-id="${tile.id}"
+      data-num="${tile.isJoker ? '' : tile.number}"
+      ontouchstart="tilePointerDown(event,${tile.id},'rack',true)"
+      onpointerdown="tilePointerDown(event,${tile.id},'rack',false)"
+      onclick="tileClick(event,${tile.id})"
+    >${num}</div>`;
+  }).join('');
+}
+
+function renderLog(log) {
+  const p = document.getElementById('log-panel');
+  p.innerHTML = log.map(l => `<div class="log-item">${l.msg}</div>`).join('');
+}
+
+// ── Client Validation ──────────────────────────────────────
+function isValidGroupClient(tiles) {
+  const real = tiles.filter(t => !t.isJoker);
+  if (real.length === 0 || tiles.length < 3 || tiles.length > 4) return false;
+  const n = real[0].number;
+  if (!real.every(t => t.number === n)) return false;
+  return new Set(real.map(t => t.color)).size === real.length;
+}
+function isValidRunClient(tiles) {
+  if (tiles.length < 3) return false;
+  const real = tiles.filter(t => !t.isJoker);
+  if (real.length === 0) return false;
+  const col = real[0].color;
+  if (!real.every(t => t.color === col)) return false;
+  const nums = real.map(t => t.number);
+  if (new Set(nums).size !== nums.length) return false;
+  const sorted = [...real].sort((a, b) => a.number - b.number);
+  const min = sorted[0].number, max = sorted[sorted.length - 1].number;
+  return max - min + 1 === tiles.length && min >= 1 && max <= 13;
+}
+
+// ── Tile Interaction: Click to Select/Place ─────────────────
+function tileClick(event, tileId) {
+  if (dragState) return;
+  if (!isMyTurn) return;
+  event.stopPropagation();
+
+  // Find tile
+  const fromRack = myRack.find(t => t.id === tileId);
+  const inBoard = boardSets.flatMap((s, si) => s.map((t, ti) => ({ tile: t, si, ti }))).find(x => x.tile.id === tileId);
+
+  if (!selectedTile) {
+    // Select tile
+    if (fromRack) {
+      selectedTile = { tile: fromRack, source: 'rack' };
+      showSelectHint('Тапни сет или + чтобы разместить');
+      renderRack();
+      renderBoard();
+    } else if (inBoard) {
+      selectedTile = { tile: inBoard.tile, source: { type: 'board', si: inBoard.si, ti: inBoard.ti } };
+      showSelectHint('Тапни другой сет или свою стойку');
+      renderBoard();
+    }
+    return;
+  }
+
+  // Already selected — clicking same tile deselects
+  if (selectedTile.tile.id === tileId) {
+    selectedTile = null;
+    clearSelectHint();
+    renderRack();
+    renderBoard();
+    return;
+  }
+
+  // Click on a tile IN a set → insert before it
+  if (inBoard) {
+    placeTileAt(selectedTile, { type: 'board', si: inBoard.si, pos: inBoard.ti });
+    return;
+  }
+
+  // Click on rack tile → deselect and select new
+  if (fromRack) {
+    selectedTile = { tile: fromRack, source: 'rack' };
+    renderRack();
+    renderBoard();
+    return;
+  }
+}
+
+// Click on set background
+function setClick(setIdx) {
+  if (!selectedTile || !isMyTurn) return;
+  placeTileAt(selectedTile, { type: 'board', si: setIdx, pos: boardSets[setIdx].length });
+}
+
+function createNewSet(tile) {
+  if (!isMyTurn) return;
+  const src = tile || selectedTile;
+  if (!src) return;
+  pickupTile(src.tile, src.source);
+  boardSets.push([src.tile]);
+  selectedTile = null;
+  clearSelectHint();
+  renderBoard();
+  renderRack();
+}
+
+function placeTileAt(sel, dest) {
+  const tile = sel.tile;
+  const src = sel.source;
+
+  // Remove from source
+  pickupTile(tile, src);
+
+  // Insert at destination
+  if (dest.type === 'board') {
+    let pos = dest.pos;
+    if (typeof pos === 'undefined') pos = boardSets[dest.si]?.length || 0;
+    if (!boardSets[dest.si]) boardSets[dest.si] = [];
+    // If inserting before a tile that shifted, adjust
+    boardSets[dest.si].splice(pos, 0, tile);
+    // Clean empty sets
+    boardSets = boardSets.filter(s => s.length > 0);
+  } else if (dest === 'rack') {
+    myRack.push(tile);
+  }
+
+  selectedTile = null;
+  clearSelectHint();
+  renderBoard();
+  renderRack();
+}
+
+function pickupTile(tile, source) {
+  if (source === 'rack') {
+    myRack = myRack.filter(t => t.id !== tile.id);
+  } else if (source?.type === 'board') {
+    boardSets[source.si] = boardSets[source.si].filter(t => t.id !== tile.id);
+    boardSets = boardSets.filter(s => s.length > 0);
+  }
+}
+
+// ── Drag & Drop (Pointer Events) ───────────────────────────
+let touchMode = false;
+
+function tilePointerDown(event, tileId, srcRaw, isTouch) {
+  if (!isMyTurn) return;
+  if (isTouch && !touchMode) { touchMode = true; }
+  if (!isTouch && touchMode) return; // ignore mouse if touch device
+
+  const src = typeof srcRaw === 'string' ? srcRaw : srcRaw;
+  const tile = myRack.find(t => t.id === tileId) ||
+    boardSets.flat().find(t => t.id === tileId);
+  if (!tile) return;
+
+  const el = event.currentTarget;
+  const rect = el.getBoundingClientRect();
+  const cx = isTouch ? event.touches[0].clientX : event.clientX;
+  const cy = isTouch ? event.touches[0].clientY : event.clientY;
+  const offsetX = cx - rect.left;
+  const offsetY = cy - rect.top;
+
+  // Start drag only on long-press or move
+  let moved = false;
+  let dragStarted = false;
+  let startX = cx, startY = cy;
+
+  const onMove = (e) => {
+    const x = isTouch ? e.touches[0].clientX : e.clientX;
+    const y = isTouch ? e.touches[0].clientY : e.clientY;
+    if (!moved && (Math.abs(x - startX) > 8 || Math.abs(y - startY) > 8)) {
+      moved = true;
+      startDragForReal(tile, src, el, offsetX, offsetY);
+      dragStarted = true;
+    }
+    if (dragStarted) {
+      moveGhost(x, y, offsetX, offsetY);
+      e.preventDefault();
+    }
+  };
+
+  const onEnd = (e) => {
+    cleanup();
+    if (!moved) return; // let click handle it
+    if (!dragState) return;
+    const x = isTouch ? (e.changedTouches[0]?.clientX || startX) : e.clientX;
+    const y = isTouch ? (e.changedTouches[0]?.clientY || startY) : e.clientY;
+    dropAt(x, y);
+  };
+
+  const cleanup = () => {
+    if (isTouch) {
+      document.removeEventListener('touchmove', onMove);
+      document.removeEventListener('touchend', onEnd);
+    } else {
+      document.removeEventListener('pointermove', onMove);
+      document.removeEventListener('pointerup', onEnd);
+    }
+  };
+
+  if (isTouch) {
+    document.addEventListener('touchmove', onMove, { passive: false });
+    document.addEventListener('touchend', onEnd);
+  } else {
+    event.setPointerCapture && event.setPointerCapture(event.pointerId);
+    document.addEventListener('pointermove', onMove);
+    document.addEventListener('pointerup', onEnd);
+  }
+}
+
+function startDragForReal(tile, src, el, offX, offY) {
+  selectedTile = null;
+  clearSelectHint();
+
+  // Ghost
+  ghostEl = el.cloneNode(true);
+  ghostEl.className = el.className + ' drag-ghost';
+  ghostEl.style.width = el.offsetWidth + 'px';
+  ghostEl.style.height = el.offsetHeight + 'px';
+  document.body.appendChild(ghostEl);
+
+  el.classList.add('ghost-source');
+
+  dragState = { tile, src, el, offX, offY };
+}
+
+function moveGhost(x, y, offX, offY) {
+  if (!ghostEl) return;
+  ghostEl.style.left = (x - (offX || 21)) + 'px';
+  ghostEl.style.top = (y - (offY || 29)) + 'px';
+}
+
+function dropAt(x, y) {
+  if (!dragState) return;
+  const { tile, src, el } = dragState;
+
+  // Find drop target
+  if (ghostEl) ghostEl.style.display = 'none';
+  const target = document.elementFromPoint(x, y);
+  if (ghostEl) ghostEl.style.display = '';
+
+  el.classList.remove('ghost-source');
+  cleanupGhost();
+
+  if (!target) { dragState = null; return; }
+
+  // Drop slot between tiles
+  const slot = target.closest('.drop-slot');
+  if (slot) {
+    const si = parseInt(slot.dataset.set);
+    const pos = parseInt(slot.dataset.pos);
+    pickupTile(tile, src);
+    if (!boardSets[si]) boardSets[si] = [];
+    boardSets[si].splice(pos, 0, tile);
+    boardSets = boardSets.filter(s => s.length > 0);
+    dragState = null;
+    renderBoard(); renderRack();
+    return;
+  }
+
+  // New set
+  if (target.closest('#new-set-btn')) {
+    pickupTile(tile, src);
+    boardSets.push([tile]);
+    dragState = null;
+    renderBoard(); renderRack();
+    return;
+  }
+
+  // On another tile on board
+  const boardTile = target.closest('.tile[data-id]');
+  if (boardTile && document.getElementById('board').contains(boardTile)) {
+    const toId = parseInt(boardTile.dataset.id);
+    const found = boardSets.flatMap((s, si) => s.map((t, ti) => ({ t, si, ti }))).find(x => x.t.id === toId);
+    if (found) {
+      pickupTile(tile, src);
+      boardSets[found.si].splice(found.ti, 0, tile);
+      boardSets = boardSets.filter(s => s.length > 0);
+      dragState = null;
+      renderBoard(); renderRack();
+      return;
+    }
+  }
+
+  // Drop on set row itself
+  const setRow = target.closest('.set-row');
+  if (setRow) {
+    const si = parseInt(setRow.dataset.set);
+    pickupTile(tile, src);
+    if (!boardSets[si]) boardSets[si] = [];
+    boardSets[si].push(tile);
+    boardSets = boardSets.filter(s => s.length > 0);
+    dragState = null;
+    renderBoard(); renderRack();
+    return;
+  }
+
+  // Drop on rack
+  if (target.closest('.rack')) {
+    pickupTile(tile, src);
+    myRack.push(tile);
+    boardSets = boardSets.filter(s => s.length > 0);
+    dragState = null;
+    renderBoard(); renderRack();
+    return;
+  }
+
+  dragState = null;
+  renderBoard(); renderRack();
+}
+
+function cleanupGhost() {
+  if (ghostEl) { ghostEl.remove(); ghostEl = null; }
+}
+
+// Click on set row background → place selected tile
+document.addEventListener('click', e => {
+  if (!isMyTurn || !selectedTile) return;
+  const row = e.target.closest('.set-row');
+  if (row && !e.target.closest('.tile')) {
+    const si = parseInt(row.dataset.set);
+    placeTileAt(selectedTile, { type: 'board', si, pos: boardSets[si]?.length || 0 });
+  }
+  const nb = e.target.closest('#new-set-btn');
+  if (nb) createNewSet();
+});
+
+// ── UI Helpers ─────────────────────────────────────────────
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.add('hidden'));
+  document.getElementById(id).classList.remove('hidden');
+}
+
+function showToast(msg, type = 'error') {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = `toast ${type} show`;
+  clearTimeout(t._timer);
+  t._timer = setTimeout(() => t.classList.remove('show'), 3000);
+}
+
+function showSelectHint(msg) {
+  const h = document.getElementById('select-hint');
+  h.textContent = msg;
+  h.classList.add('show');
+}
+function clearSelectHint() {
+  document.getElementById('select-hint').classList.remove('show');
+}
+
+// ── Keyboard shortcuts ─────────────────────────────────────
+document.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && document.getElementById('lobby').classList.contains('hidden') === false) {
+    const code = document.getElementById('code-input').value.trim();
+    if (code.length === 4) joinRoom(); else createRoom();
+  }
+  if (e.key === 'Escape' && selectedTile) {
+    selectedTile = null;
+    clearSelectHint();
+    renderRack();
+    renderBoard();
+  }
+  if (e.key === 'd' && isMyTurn) drawTile();
+  if (e.key === 'Enter' && isMyTurn && document.getElementById('game').classList.contains('hidden') === false) endTurn();
+});
+
+// ── Init ───────────────────────────────────────────────────
+document.getElementById('name-input').focus();
+</script>
+</body>
+</html>
